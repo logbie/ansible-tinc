@@ -1,5 +1,5 @@
 [vpn]
-db01 vpn_ip=10.0.0.1 ansible_host=10.132.28.4
-prod01 vpn_ip=10.0.0.2 ansible_host=10.132.174.10
+db01 vpn_ip=10.0.0.1 ansible_host=165.227.71.54
+prod01 vpn_ip=10.0.0.2 ansible_host=134.209.38.101
 
 [removevpn]
