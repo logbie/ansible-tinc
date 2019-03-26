@@ -1,11 +1,5 @@
 ---
 
-- name: install epel-release (redhat)
-  yum: >
-    name=epel-release
-    state=latest
-  when: (ansible_os_family == "RedHat" and ansible_distribution_major_version == "7")
-
 - name: install tinc
   package: >
     name=tinc
@@ -15,17 +9,6 @@
   package: >
     name=python
     state=latest
-
-- name: create tinc systemd service file (redhat)
-  template: >
-    src=tinc.service.j2
-    dest=/etc/systemd/system/tinc.service
-  register: tinc_service_file
-  when: (ansible_os_family == "RedHat" and ansible_distribution_major_version == "7")
-
-- name: systemctl daemon-reload (redhat)
-  shell: systemctl daemon-reload
-  when: tinc_service_file.changed
 
 - name: ensure tinc netname directory exists
   file: >
@@ -37,47 +20,35 @@
   template: >
     src=nets.boot.j2
     dest=/etc/tinc/nets.boot
-  notify:
-    - restart tinc
 
 - name: ensure tinc.conf contains connection to all other nodes
   template: >
     src=tinc.conf.j2
     dest=/etc/tinc/{{ netname }}/tinc.conf
-  notify:
-    - reload tinc
 
 - name: create tinc-up file
   template: >
     src=tinc-up.j2
     dest=/etc/tinc/{{ netname }}/tinc-up
     mode=0755
-  notify:
-    - restart tinc
 
 - name: create tinc-down file
   template: >
     src=tinc-down.j2
     dest=/etc/tinc/{{ netname }}/tinc-down
     mode=0755
-  notify:
-    - restart tinc
 
 - name: ensure tinc hosts file binds to physical ip address
   lineinfile: >
     dest=/etc/tinc/{{ netname }}/hosts/{{ inventory_hostname }}
     line="Address = {{ physical_ip }}"
     create=yes
-  notify:
-    - restart tinc
 
 - name: ensure subnet ip address is properly set in tinc host file
   lineinfile: >
     dest=/etc/tinc/{{ netname }}/hosts/{{ inventory_hostname }}
     line="Subnet = {{ vpn_ip }}/{{ vpn_subnet_cidr_netmask }}"
     create=yes
-  notify:
-    - restart tinc
 
 - name: check whether /etc/tinc/netname/hosts/inventory_hostname contains "-----END RSA PUBLIC KEY-----"
   command: awk '/^-----END RSA PUBLIC KEY-----$/'  /etc/tinc/{{ netname }}/hosts/{{ inventory_hostname }}
@@ -95,23 +66,17 @@
   shell: tincd -n {{ netname }} -K4096
   args:
     creates: /etc/tinc/{{ netname }}/rsa_key.priv
-  notify:
-    - restart tinc
 
 - name: fetch tinc hosts file after key creation
   fetch: >
     src=/etc/tinc/{{ netname }}/hosts/{{ inventory_hostname }}
     dest=fetch/{{ inventory_hostname }}
     flat=yes
-  notify:
-    - reload tinc
 
 - name: sync the fetched tinc hosts files on each host
   synchronize: >
     src=fetch/
     dest=/etc/tinc/{{ netname }}/hosts/
-  notify:
-    - reload tinc
 
 - name: run handlers
   meta: flush_handlers
@@ -122,6 +87,9 @@
     enabled=yes
     state=started
     pattern=tincd -n {{ netname }}
+
+- name: systemctl daemon-reload (redhat)
+  shell: systemctl enable tinc@{{ netname }}
 
 - name: add nodes to /etc/hosts (ansible_inventory resolves to vpn_ip)
   lineinfile: dest=/etc/hosts regexp='.*{{ item }}$' line="{{ hostvars[item].vpn_ip }} {{item}}" state=present
