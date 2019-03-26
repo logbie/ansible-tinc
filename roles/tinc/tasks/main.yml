@@ -88,7 +88,7 @@
     state=started
     pattern=tincd -n {{ netname }}
 
-- name: systemctl daemon-reload (redhat)
+- name: systemctl enable
   shell: systemctl enable tinc@{{ netname }}
 
 - name: add nodes to /etc/hosts (ansible_inventory resolves to vpn_ip)
